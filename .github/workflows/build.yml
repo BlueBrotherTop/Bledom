@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk python3-pip autoconf libtool \
+            pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev \
+            libtinfo5 cmake libffi-dev libssl-dev automake
+
+      - name: Install Buildozer and Cython
+        run: |
+          pip3 install --upgrade pip
+          pip3 install buildozer==1.5.0 cython==0.29.36
+
+      - name: Generate buildozer.spec
+        run: |
+          cat << 'EOF' > buildozer.spec
+          [app]
+          title = BLEDOM Glass Control
+          package.name = bledomglass
+          package.domain = org.bledom
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas,json
+          version = 1.0.0
+          requirements = python3,kivy==2.3.0,pillow,bleak,pyjnius,android
+          orientation = portrait
+          fullscreen = 0
+          android.permissions = BLUETOOTH,BLUETOOTH_ADMIN,BLUETOOTH_SCAN,BLUETOOTH_CONNECT,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION
+          android.api = 33
+          android.minapi = 24
+          android.ndk = 25b
+          android.archs = arm64-v8a
+          android.accept_sdk_license = True
+          p4a.branch = master
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 0
+          EOF
+
+      - name: Build Debug APK
+        run: buildozer android debug
+
+      - name: Upload APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BLEDOM-Glass-Android-APK
+          path: bin/*.apk
